@@ -607,7 +607,7 @@
             document.getElementById('totalVatLabel').innerText = vatText;
         }
 
-        // 인쇄 및 PDF 윈도우 창 저장용 (파일명 자동 지정 강화)
+       // 인쇄 및 PDF 저장 (아이폰 파일명 복사 우회 기능 추가)
         function triggerPrint() {
             const projectNameStr = document.getElementById('projectName').innerText.trim() || "사업명없음";
             let dateText = document.getElementById('docDate').innerText.trim();
@@ -615,7 +615,7 @@
             const newTitle = `${projectNameStr}_견적서_${dateText}(미디어뱅크)`;
             
             const originalTitle = document.title;
-            document.title = newTitle; // PDF 기본 파일명 지정
+            document.title = newTitle; // PC용 PDF 파일명 지정
 
             const style = document.createElement('style');
             style.id = 'print-page-style';
@@ -623,7 +623,22 @@
             document.head.appendChild(style);
             document.body.classList.add('is-printing');
             
-            // 타이틀이 브라우저에 등록되도록 약간의 딜레이 후 인쇄 실행
+            // ✅ 모바일(아이폰 등) 환경일 경우 파일명 자동 복사 및 안내창 띄우기
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                try {
+                    // 클립보드에 파일명 자동 복사
+                    const tempInput = document.createElement('input');
+                    tempInput.value = newTitle;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    
+                    alert("📱 아이폰(모바일) 환경에서는 보안 정책상 PDF 파일명이 자동 적용되지 않습니다.\n\n대신 파일명이 자동으로 [복사] 되었으니, '파일에 저장' 화면에서 기존 이름을 지우고 꾹 눌러 [붙여넣기]를 해주세요!\n\n복사된 이름: " + newTitle);
+                } catch (e) { console.error("복사 실패", e); }
+            }
+
             setTimeout(() => {
                 window.print();
                 setTimeout(() => {
