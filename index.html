@@ -501,6 +501,7 @@
             }
         }
 
+        // 0 입력을 빈칸으로 처리해 지우기 편하게 수정
         function createItemRow(desc='', qty='', unit='', price='', note='') {
             const tr = document.createElement('tr');
             tr.className = 'item-row';
@@ -512,27 +513,40 @@
                 <td class="col-desc">
                     <div class="desc-input" contenteditable="true" onblur="saveHistory()" oninput="calculate()">${desc}</div>
                 </td>
-                <td class="col-qty"><input type="number" style="text-align:center;" placeholder="0" value="${qty}" onchange="saveHistory()" oninput="calculate()"></td>
+                <td class="col-qty"><input type="number" style="text-align:center;" placeholder="" value="${qty == 0 ? '' : qty}" onchange="saveHistory()" oninput="calculate()"></td>
                 <td class="col-unit"><input type="text" name="unit" style="text-align:center; ime-mode:active;" placeholder="" value="${unit}" onchange="saveHistory()"></td>
-                <td class="col-price"><input type="text" placeholder="0" value="${fmt(price)}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();" oninput="calculate()"></td>
-                <td class="col-amt val-amt">0</td>
+                <td class="col-price"><input type="text" placeholder="" value="${price == 0 ? '' : fmt(price)}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();" oninput="calculate()"></td>
+                <td class="col-amt val-amt"></td>
                 <td class="col-ratio val-ratio">0.0%</td>
                 <td class="col-note"><input type="text" style="text-align:center;" placeholder="" value="${note}" onchange="saveHistory()"></td>
             `;
             return tr;
         }
 
-        function createSubtotalRow(label='', note='') {
+        // 소계에서 금액 및 단위 입력이 가능하도록 레이아웃 수정
+        function createSubtotalRow(label='', unit='', price='', amt='', isManual=false, note='') {
             const tr = document.createElement('tr');
             tr.className = 'subtotal-row';
             tr.innerHTML = `
                 <td class="col-del">
                     <button class="btn-del no-print" onclick="this.closest('tr').remove(); calculate(); saveHistory();">×</button>
                 </td>
-                <td colspan="4" style="text-align:center;"><input type="text" style="text-align:center; font-weight:bold; color:inherit; background:transparent;" value="${label || '[ 소 계 ]'}" onchange="saveHistory()"></td>
-                <td class="col-amt val-amt">0</td>
+                <td colspan="2" style="text-align:center;">
+                    <input type="text" style="text-align:center; font-weight:bold; color:inherit; background:transparent;" value="${label || '[ 소 계 ]'}" onchange="saveHistory()">
+                </td>
+                <td class="col-unit">
+                    <input type="text" style="text-align:center; font-weight:bold; color:inherit; background:transparent;" placeholder="" value="${unit || ''}" onchange="saveHistory()">
+                </td>
+                <td class="col-price">
+                    <input type="text" style="text-align:right; font-weight:bold; color:inherit; background:transparent;" placeholder="" value="${price ? fmt(price) : ''}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();">
+                </td>
+                <td class="col-amt">
+                    <input type="text" class="subtotal-amt-input" style="text-align:right; font-weight:bold; color:inherit; background:transparent;" value="${amt ? fmt(amt) : ''}" data-manual="${isManual}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();" oninput="this.dataset.manual='true'; calculate();">
+                </td>
                 <td class="col-ratio val-ratio">0.0%</td>
-                <td class="col-note"><input type="text" style="text-align:center;" placeholder="" value="${note}" onchange="saveHistory()"></td>
+                <td class="col-note">
+                    <input type="text" style="text-align:center;" placeholder="" value="${note || ''}" onchange="saveHistory()">
+                </td>
             `;
             return tr;
         }
@@ -540,8 +554,15 @@
         function addRow() { tbody.appendChild(createItemRow()); calculate(); saveHistory(); }
         function addSubtotalRow() { tbody.appendChild(createSubtotalRow()); calculate(); saveHistory(); }
         
-        function formatInput(el) { el.value = fmt(parseNum(el.value)); }
-        function unformatInput(el) { if(el.value) el.value = parseNum(el.value); }
+        // 포커스 이동 시 0을 빈칸으로 남겨 바로 입력하기 쉽도록 개선
+        function formatInput(el) { 
+            let val = String(el.value).replace(/[^0-9.-]+/g,"");
+            el.value = (val === "" || Number(val) === 0) ? "" : fmt(Number(val)); 
+        }
+        function unformatInput(el) { 
+            let val = String(el.value).replace(/[^0-9.-]+/g,"");
+            el.value = (val === "" || Number(val) === 0) ? "" : Number(val);
+        }
 
         function calculate() {
             let sumAmt = 0;
@@ -557,13 +578,18 @@
                     const price = parseNum(tr.querySelector('.col-price input').value);
                     const amt = qty * price;
                     
-                    tr.querySelector('.val-amt').innerText = fmt(amt);
+                    tr.querySelector('.val-amt').innerText = amt === 0 ? '' : fmt(amt);
                     sumAmt += amt;
                     currentSubtotal += amt;
                     rowsData.push({ element: tr.querySelector('.val-ratio'), amt: amt });
                 } else if (tr.classList.contains('subtotal-row')) {
-                    tr.querySelector('.val-amt').innerText = fmt(currentSubtotal);
-                    rowsData.push({ element: tr.querySelector('.val-ratio'), amt: currentSubtotal });
+                    const amtInput = tr.querySelector('.subtotal-amt-input');
+                    // 사용자가 직접 입력한 상태가 아니면 자동계산 결과를 반영
+                    if (amtInput.dataset.manual !== 'true') {
+                        amtInput.value = currentSubtotal === 0 ? '' : fmt(currentSubtotal);
+                    }
+                    let subAmt = parseNum(amtInput.value);
+                    rowsData.push({ element: tr.querySelector('.val-ratio'), amt: subAmt });
                     currentSubtotal = 0; 
                 }
             });
@@ -583,9 +609,9 @@
                 document.getElementById('footerMulti2').style.display = 'table-row';
                 document.getElementById('footerMulti3').style.display = 'table-row';
                 
-                document.getElementById('finalAmtSupply').innerText = fmt(sumAmt);
-                document.getElementById('finalAmtVat').innerText = fmt(vatAmt);
-                document.getElementById('finalAmtTotal').innerText = fmt(finalGrandTotal);
+                document.getElementById('finalAmtSupply').innerText = finalGrandTotal === 0 ? '' : fmt(sumAmt);
+                document.getElementById('finalAmtVat').innerText = finalGrandTotal === 0 ? '' : fmt(vatAmt);
+                document.getElementById('finalAmtTotal').innerText = finalGrandTotal === 0 ? '' : fmt(finalGrandTotal);
                 
                 document.getElementById('ratioSupply').innerText = finalGrandTotal > 0 ? ((sumAmt / finalGrandTotal) * 100).toFixed(1) + '%' : '0.0%';
                 document.getElementById('ratioVat').innerText = finalGrandTotal > 0 ? ((vatAmt / finalGrandTotal) * 100).toFixed(1) + '%' : '0.0%';
@@ -597,7 +623,7 @@
                 document.getElementById('footerMulti2').style.display = 'none';
                 document.getElementById('footerMulti3').style.display = 'none';
                 
-                document.getElementById('finalAmtSingle').innerText = fmt(sumAmt);
+                document.getElementById('finalAmtSingle').innerText = sumAmt === 0 ? '' : fmt(sumAmt);
                 document.getElementById('footerVatLabel').innerText = vatText;
             }
 
@@ -610,7 +636,6 @@
             document.getElementById('totalVatLabel').innerText = vatText;
         }
 
-       // 인쇄 및 PDF 저장 (아이폰 파일명 복사 우회 기능 추가)
         function triggerPrint() {
             const projectNameStr = document.getElementById('projectName').innerText.trim() || "사업명없음";
             let dateText = document.getElementById('docDate').innerText.trim();
@@ -618,7 +643,7 @@
             const newTitle = `${projectNameStr}_견적서_${dateText}(미디어뱅크)`;
             
             const originalTitle = document.title;
-            document.title = newTitle; // PC용 PDF 파일명 지정
+            document.title = newTitle; 
 
             const style = document.createElement('style');
             style.id = 'print-page-style';
@@ -626,11 +651,9 @@
             document.head.appendChild(style);
             document.body.classList.add('is-printing');
             
-            // ✅ 모바일(아이폰 등) 환경일 경우 파일명 자동 복사 및 안내창 띄우기
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             if (isMobile) {
                 try {
-                    // 클립보드에 파일명 자동 복사
                     const tempInput = document.createElement('input');
                     tempInput.value = newTitle;
                     document.body.appendChild(tempInput);
@@ -646,16 +669,13 @@
                 window.print();
                 setTimeout(() => {
                     document.body.classList.remove('is-printing');
-                    document.title = originalTitle; // 원래 타이틀 복구
+                    document.title = originalTitle; 
                     const pStyle = document.getElementById('print-page-style');
                     if(pStyle) pStyle.remove();
                 }, 500);
             }, 100);
         }
 
-        // 엑셀 디자인(테두리,색상) 완벽 이식 다운로드
-        // 엑셀 디자인(테두리,색상) 완벽 이식 다운로드 (A4 사이즈 최적화)
-        // 엑셀 디자인 완벽 이식 다운로드 (천 단위 쉼표 서식 추가)
         function exportToExcel() {
             const wb = XLSX.utils.book_new();
             
@@ -676,6 +696,9 @@
             ];
 
             let itemIndex = 1;
+            let subtotalMergeRows = [];
+            let currentRow = 12; // 엑셀에서 내역 데이터가 시작되는 인덱스
+
             Array.from(tbody.children).forEach(tr => {
                 if (tr.classList.contains('item-row')) {
                     ws_data.push([
@@ -691,12 +714,17 @@
                 } else if (tr.classList.contains('subtotal-row')) {
                     ws_data.push([
                         "",
-                        tr.querySelector('input').value, "", "", "", 
-                        parseNum(tr.querySelector('.val-amt').innerText), 
+                        tr.querySelector('td:nth-child(2) input').value, 
+                        "", // 소계 수량 칸은 뺌
+                        tr.querySelector('.col-unit input').value,
+                        parseNum(tr.querySelector('.col-price input').value),
+                        parseNum(tr.querySelector('.subtotal-amt-input').value), 
                         tr.querySelector('.val-ratio').innerText, 
                         tr.querySelector('.col-note input').value
                     ]);
+                    subtotalMergeRows.push(currentRow);
                 }
+                currentRow++;
             });
             
             const vatOpt = document.getElementById('vatSelector').value;
@@ -741,6 +769,11 @@
                 { s: { r: 8, c: 0 }, e: { r: 8, c: 7 } }, 
                 { s: { r: 10, c: 0 }, e: { r: 10, c: 7 } } 
             ];
+
+            // 엑셀 내보내기 시 소계 셀 병합(내역~수량 2칸) 처리
+            subtotalMergeRows.forEach(r => {
+                ws['!merges'].push({ s: { r: r, c: 1 }, e: { r: r, c: 2 } });
+            });
 
             for (let i = startFooterRow; i < ws_data.length; i++) {
                 ws['!merges'].push({ s: { r: i, c: 1 }, e: { r: i, c: 4 } });
@@ -811,18 +844,20 @@
                             if (C === 1 && R < startFooterRow) {
                                 style.alignment.horizontal = "left";
                             }
-                            // ✅ 단가, 공급가액 칸 처리 (오른쪽 정렬 + 쉼표 서식)
                             if (C === 4 || C === 5) {
                                 style.alignment.horizontal = "right";
                                 if (typeof cell.v === 'number') {
-                                    cell.z = "#,##0"; // 천 단위 콤마 엑셀 서식 적용
+                                    cell.z = "#,##0"; 
                                 }
                             }
-                            if (R >= startFooterRow) {
-                                style.fill = { fgColor: { rgb: "E0F2F1" } };
+                            if (R >= startFooterRow || subtotalMergeRows.includes(R)) {
+                                style.fill = { fgColor: { rgb: "FFF3CD" } };
                                 style.font.bold = true;
                                 if (C === 1) {
                                     style.alignment.horizontal = "center";
+                                }
+                                if (R >= startFooterRow) {
+                                    style.fill = { fgColor: { rgb: "E0F2F1" } }; // 총합계는 기존 색상 유지
                                 }
                             }
                         }
@@ -841,7 +876,6 @@
             XLSX.writeFile(wb, fileName);
         }
 
-        // --- 수정된 엑셀 레이아웃에 맞춰 불러오기 최적화 ---
         function importFromExcel(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -877,7 +911,6 @@
                     tbody.innerHTML = '';
                     let vatOpt = 'include';
 
-                    // 엑셀의 13번째 행(인덱스 12는 타이틀)의 다음인 인덱스 13번부터 아이템 파싱
                     for (let i = 13; i < json.length; i++) {
                         const row = json[i];
                         if (!row || row.length === 0) continue;
@@ -901,8 +934,11 @@
                         } 
                         else if (col1 !== "") {
                             const label = row[1];
+                            const unit = row[3] || "";
+                            const price = row[4] || "";
+                            const amt = row[5] || "";
                             const note = row[7] || "";
-                            tbody.appendChild(createSubtotalRow(label, note));
+                            tbody.appendChild(createSubtotalRow(label, unit, price, amt, true, note));
                         }
                     }
 
@@ -920,7 +956,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // 도장 이동 기능
         const seal = document.getElementById('sealImg');
         let isDragging = false, startX, startY, initialLeft, initialTop;
 
@@ -1001,7 +1036,11 @@
                 } else if (tr.classList.contains('subtotal-row')) {
                     data.rows.push({
                         type: 'subtotal',
-                        label: tr.querySelector('input').value,
+                        label: tr.querySelector('td:nth-child(2) input').value,
+                        unit: tr.querySelector('.col-unit input').value,
+                        price: parseNum(tr.querySelector('.col-price input').value),
+                        amt: parseNum(tr.querySelector('.subtotal-amt-input').value),
+                        isManual: tr.querySelector('.subtotal-amt-input').dataset.manual === 'true',
                         note: tr.querySelector('.col-note input').value
                     });
                 }
@@ -1040,7 +1079,7 @@
                             if (row.type === 'item') {
                                 tbody.appendChild(createItemRow(row.desc, row.qty, row.unit, row.price, row.note));
                             } else if (row.type === 'subtotal') {
-                                const tr = createSubtotalRow(row.label, row.note || '');
+                                const tr = createSubtotalRow(row.label, row.unit, row.price, row.amt, row.isManual, row.note);
                                 tbody.appendChild(tr);
                             }
                         });
