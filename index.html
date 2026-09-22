@@ -74,14 +74,13 @@
         .page-wrapper {
             width: 100%;
             max-width: 210mm;
-            
             background: transparent;
         }
         
         .page {
             width: 210mm;
             background: white;
-            padding: 15mm;
+            padding: 10mm 15mm 15mm 15mm; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
             position: relative;
@@ -180,7 +179,7 @@
             background: var(--primary);
             color: white;
             padding: 8px 4px;
-            border: 1px solid #006666;
+            border: 1px solid var(--border);
             outline: none;
             text-align: center; 
         }
@@ -189,10 +188,9 @@
         table.items-table th.col-desc { width: auto; }
         table.items-table th.col-qty { width: 50px; }
         table.items-table th.col-unit { width: 50px; }
-        table.items-table th.col-price { width: 90px; }
-        table.items-table th.col-amt { width: 100px; }
-        table.items-table th.col-ratio { width: 60px; }
-        table.items-table th.col-note { width: 60px; }
+        table.items-table th.col-price { width: 100px; }
+        table.items-table th.col-amt { width: 110px; }
+        table.items-table th.col-ratio { width: 65px; }
         
         table.items-table td {
             border: 1px solid var(--border);
@@ -239,7 +237,6 @@
         td.col-price, td.col-amt { text-align: right; }
         .col-amt { background: #fafafa; font-weight: 500; }
         .col-ratio { text-align: center; background: #fafafa; }
-        .col-note { }
         
         .subtotal-row td {
             background: #fff3cd !important;
@@ -302,26 +299,36 @@
         }
         .notes-section input:focus { background-color: #f0f8ff; }
         
-        tr { page-break-inside: avoid; }
-        tfoot { display: table-footer-group; }
+        tr, td, th { 
+            page-break-inside: avoid; 
+            break-inside: avoid; 
+        }
+        thead { display: table-header-group; }
+        tfoot { display: table-row-group; }
 
         @media print {
             @page {
                 size: A4;
-                margin: 0mm;
+                margin: 0 !important; 
             }
             * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            body { background: white; padding: 15mm 10mm; margin: 0; }
+            body { 
+                background: white; 
+                padding: 10mm 10mm 15mm 10mm !important; 
+                margin: 0; 
+            }
             .toolbar, .no-print { display: none !important; }
             .print-only { display: inline !important; color: white !important; font-size: 12px; }
             .page-wrapper { overflow: visible; }
             .page { box-shadow: none; width: 100%; padding: 0; margin: 0; }
             table.items-table input, .desc-input { border: none !important; }
             .seal-img { border: none !important; }
-            tfoot { display: table-row-group; }
+            
+            table.items-table { border-bottom: 1px solid var(--border); }
+            table.items-table tr { border-bottom: 1px solid var(--border); }
         }
     </style>
 </head>
@@ -339,7 +346,7 @@
             </select>
         </div>
         <div class="btn-group">
-            <button class="btn-outline" onclick="saveData()">임시저장</button>
+            <button class="btn-outline" onclick="saveData(false)">임시저장</button>
             <input type="file" id="excelUpload" style="display:none;" accept=".xlsx, .xls" onchange="importFromExcel(event)">
             <button class="btn-outline" onclick="document.getElementById('excelUpload').click()">엑셀 불러오기</button>
             <button class="btn-outline" onclick="exportToExcel()">엑셀 다운로드</button>
@@ -411,7 +418,6 @@
                         <th class="col-price" contenteditable="true">단가(원)</th>
                         <th class="col-amt" contenteditable="true">공급가액(원)</th>
                         <th class="col-ratio" contenteditable="true">구성비</th>
-                        <th class="col-note" contenteditable="true">비고</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -421,7 +427,6 @@
                         <td colspan="4" style="text-align:center; border-top: 2px solid var(--primary);" contenteditable="true">합 계 <span id="footerVatLabel">(VAT 포함)</span></td>
                         <td class="col-amt total-highlight" id="finalAmtSingle" style="text-align:right; border-top: 2px solid var(--primary);">0</td>
                         <td class="col-ratio total-highlight" id="ratioSingle" style="border-top: 2px solid var(--primary);">100.0%</td>
-                        <td contenteditable="true" style="border-top: 2px solid var(--primary);"></td>
                     </tr>
                     
                     <tr id="footerMulti1" class="grand-total-row" style="border-top: 2px solid var(--primary);">
@@ -429,21 +434,18 @@
                         <td colspan="4" style="text-align:center;" contenteditable="true">공급가액</td>
                         <td class="col-amt" id="finalAmtSupply" style="text-align:right;">0</td>
                         <td class="col-ratio" id="ratioSupply">90.9%</td>
-                        <td contenteditable="true"></td>
                     </tr>
                     <tr id="footerMulti2" class="grand-total-row">
                         <td class="col-del" style="border-top:none; border-bottom:none;"></td>
                         <td colspan="4" style="text-align:center;" contenteditable="true">부가세</td>
                         <td class="col-amt" id="finalAmtVat" style="text-align:right;">0</td>
                         <td class="col-ratio" id="ratioVat">9.1%</td>
-                        <td contenteditable="true"></td>
                     </tr>
                     <tr id="footerMulti3" class="grand-total-row">
                         <td class="col-del" style="border-top:none;"></td>
                         <td colspan="4" style="text-align:center;" contenteditable="true">합계금액</td>
                         <td class="col-amt total-highlight" id="finalAmtTotal" style="text-align:right;">0</td>
                         <td class="col-ratio total-highlight" id="ratioTotal">100.0%</td>
-                        <td contenteditable="true"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -467,6 +469,25 @@
         let currentStateIdx = -1;
         let isUndoRedoing = false;
 
+        // ===== 자동저장 로직 추가 =====
+        let autoSaveTimer;
+        function triggerAutoSave() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                saveData(true); // true = 조용히 저장(알림창 안띄움)
+            }, 1000); // 작업 완료 1초 후 자동저장 실행
+        }
+
+        // 문서 전체 영역에서 글자입력, 포커스 이동 등을 감지하여 자동저장 실행
+        document.addEventListener('DOMContentLoaded', () => {
+            const docElement = document.getElementById('document');
+            if (docElement) {
+                docElement.addEventListener('input', triggerAutoSave);
+                docElement.addEventListener('focusout', triggerAutoSave);
+            }
+        });
+        // ==============================
+
         function saveHistory() {
             if(isUndoRedoing) return;
             document.querySelectorAll('#tableBody input').forEach(input => {
@@ -487,6 +508,7 @@
                 tbody.innerHTML = historyState[currentStateIdx];
                 calculate();
                 isUndoRedoing = false;
+                triggerAutoSave();
             }
         }
 
@@ -497,16 +519,17 @@
                 tbody.innerHTML = historyState[currentStateIdx];
                 calculate();
                 isUndoRedoing = false;
+                triggerAutoSave();
             }
         }
 
-        function createItemRow(desc='', qty='', unit='', price='', note='') {
+        function createItemRow(desc='', qty='', unit='', price='') {
             const tr = document.createElement('tr');
             tr.className = 'item-row';
             tr.innerHTML = `
                 <td class="col-del">
                     <span class="idx-span"></span>
-                    <button class="btn-del no-print" onclick="this.closest('tr').remove(); calculate(); saveHistory();">×</button>
+                    <button class="btn-del no-print" onclick="this.closest('tr').remove(); calculate(); saveHistory(); triggerAutoSave();">×</button>
                 </td>
                 <td class="col-desc">
                     <div class="desc-input" contenteditable="true" onblur="saveHistory()" oninput="calculate()">${desc}</div>
@@ -516,18 +539,16 @@
                 <td class="col-price"><input type="text" placeholder="" value="${price == 0 ? '' : fmt(price)}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();" oninput="calculate()"></td>
                 <td class="col-amt val-amt"></td>
                 <td class="col-ratio val-ratio">0.0%</td>
-                <td class="col-note"><input type="text" style="text-align:center;" placeholder="" value="${note}" onchange="saveHistory()"></td>
             `;
             return tr;
         }
 
-        // 수량(qty) 파라미터 및 인풋 필드 추가 완료
-        function createSubtotalRow(label='', qty='', unit='', price='', amt='', isManual=false, note='') {
+        function createSubtotalRow(label='', qty='', unit='', price='', amt='', isManual=false) {
             const tr = document.createElement('tr');
             tr.className = 'subtotal-row';
             tr.innerHTML = `
                 <td class="col-del">
-                    <button class="btn-del no-print" onclick="this.closest('tr').remove(); calculate(); saveHistory();">×</button>
+                    <button class="btn-del no-print" onclick="this.closest('tr').remove(); calculate(); saveHistory(); triggerAutoSave();">×</button>
                 </td>
                 <td class="col-desc" style="text-align:center;">
                     <input type="text" style="text-align:center; font-weight:bold; color:inherit; background:transparent;" value="${label || '[ 소 계 ]'}" onchange="saveHistory()">
@@ -545,15 +566,12 @@
                     <input type="text" class="subtotal-amt-input" style="text-align:right; font-weight:bold; color:inherit; background:transparent;" value="${amt ? fmt(amt) : ''}" data-manual="${isManual}" onfocus="unformatInput(this)" onblur="formatInput(this); saveHistory();" oninput="this.dataset.manual='true'; calculate();">
                 </td>
                 <td class="col-ratio val-ratio">0.0%</td>
-                <td class="col-note">
-                    <input type="text" style="text-align:center;" placeholder="" value="${note || ''}" onchange="saveHistory()">
-                </td>
             `;
             return tr;
         }
 
-        function addRow() { tbody.appendChild(createItemRow()); calculate(); saveHistory(); }
-        function addSubtotalRow() { tbody.appendChild(createSubtotalRow()); calculate(); saveHistory(); }
+        function addRow() { tbody.appendChild(createItemRow()); calculate(); saveHistory(); triggerAutoSave(); }
+        function addSubtotalRow() { tbody.appendChild(createSubtotalRow()); calculate(); saveHistory(); triggerAutoSave(); }
         
         function formatInput(el) { 
             let val = String(el.value).replace(/[^0-9.-]+/g,"");
@@ -589,15 +607,13 @@
                     if (amtInput.dataset.manual !== 'true') {
                         amtInput.value = currentSubtotal === 0 ? '' : fmt(currentSubtotal);
                     } else {
-                        // 사용자가 수기로 소계를 변경한 경우:
-                        // 방금 전까지 계산된 해당 묶음의 자동 합산액(currentSubtotal)을 총액에서 빼고, 수기 금액을 합산
                         let manualAmt = parseNum(amtInput.value);
                         sumAmt = sumAmt - currentSubtotal + manualAmt;
                     }
                     
                     let subAmt = parseNum(amtInput.value);
                     rowsData.push({ element: tr.querySelector('.val-ratio'), amt: subAmt });
-                    currentSubtotal = 0; // 다음 묶음을 위해 초기화
+                    currentSubtotal = 0; 
                 }
             });
 
@@ -634,7 +650,6 @@
                 document.getElementById('footerVatLabel').innerText = vatText;
             }
 
-            // 구성비 업데이트
             rowsData.forEach(data => {
                 let ratio = finalGrandTotal > 0 ? (data.amt / finalGrandTotal) * 100 : 0;
                 data.element.innerText = ratio.toFixed(1) + '%';
@@ -655,7 +670,7 @@
 
             const style = document.createElement('style');
             style.id = 'print-page-style';
-            style.innerHTML = `@page { size: A4; margin: 0mm; } body { padding: 15mm 10mm; }`;
+            style.innerHTML = `@page { size: A4; margin: 0 !important; } body { padding: 10mm 10mm 15mm 10mm !important; margin: 0; } tr { page-break-inside: avoid; break-inside: avoid; }`;
             document.head.appendChild(style);
             document.body.classList.add('is-printing');
             
@@ -669,7 +684,7 @@
                     document.execCommand('copy');
                     document.body.removeChild(tempInput);
                     
-                    alert("📱 아이폰(모바일) 환경에서는 보안 정책상 PDF 파일명이 자동 적용되지 않습니다.\n\n대신 파일명이 자동으로 [복사] 되었으니, '파일에 저장' 화면에서 기존 이름을 지우고 꾹 눌러 [붙여넣기]를 해주세요!\n\n복사된 이름: " + newTitle);
+                    alert("📱 아이폰(모바일) 환경에서는 보안 정책상 PDF 파일명이 자동 적용되지 않습니다.\n\n대신 파일명이 자동으로 [복사] 되었으니, '파일에 저장' 화면에서 기존 이름을 지우고 꾹 눌러 [붙여넣기]를 해주세요!\n\n※ 인쇄 미리보기에서 하단 URL이 보인다면, '옵션'에서 '머리글 및 바닥글' 체크를 해제해주세요.");
                 } catch (e) { console.error("복사 실패", e); }
             }
 
@@ -690,17 +705,17 @@
             let ws_data = [
                 ["견 적 서"],
                 [],
-                ["사 업 명", document.getElementById('projectName').innerText, "", "", "업 체 명", document.getElementById('companyName').innerText],
-                ["제품규격", document.getElementById('productSpec').innerText, "", "", "사업자번호", document.getElementById('companyBizNum').innerText],
-                ["수 신", document.getElementById('clientName').innerText, "", "", "업태/종목", document.getElementById('companyType').innerText],
-                ["발 행 일", document.getElementById('docDate').innerText, "", "", "주 소", document.getElementById('companyAddr').innerText],
-                ["연 락 처", "M. 010.2653.3464\nT. 031.898.6123 F. 0504.230.3464", "", "", "대 표 자", "조성일"],
+                ["사 업 명", document.getElementById('projectName').innerText, "", "", "업 체 명", document.getElementById('companyName').innerText, ""],
+                ["제품규격", document.getElementById('productSpec').innerText, "", "", "사업자번호", document.getElementById('companyBizNum').innerText, ""],
+                ["수 신", document.getElementById('clientName').innerText, "", "", "업태/종목", document.getElementById('companyType').innerText, ""],
+                ["발 행 일", document.getElementById('docDate').innerText, "", "", "주 소", document.getElementById('companyAddr').innerText, ""],
+                ["연 락 처", "M. 010.2653.3464\nT. 031.898.6123 F. 0504.230.3464", "", "", "대 표 자", "조성일", ""],
                 [],
                 ["아래와 같이 견적합니다."],
                 [],
-                ["총 견적금액 : " + document.getElementById('grandTotalDisplay').innerText + " " + document.getElementById('totalVatLabel').innerText, "", "", "", "", "", "", ""],
+                ["총 견적금액 : " + document.getElementById('grandTotalDisplay').innerText + " " + document.getElementById('totalVatLabel').innerText, "", "", "", "", "", ""],
                 [],
-                ["No.", "내역", "수량", "단위", "단가(원)", "공급가액(원)", "구성비", "비고"]
+                ["No.", "내역", "수량", "단위", "단가(원)", "공급가액(원)", "구성비"]
             ];
 
             let itemIndex = 1;
@@ -716,8 +731,7 @@
                         tr.querySelector('.col-unit input').value,
                         parseNum(tr.querySelector('.col-price input').value),
                         parseNum(tr.querySelector('.val-amt').innerText),
-                        tr.querySelector('.val-ratio').innerText,
-                        tr.querySelector('.col-note input').value
+                        tr.querySelector('.val-ratio').innerText
                     ]);
                 } else if (tr.classList.contains('subtotal-row')) {
                     ws_data.push([
@@ -727,8 +741,7 @@
                         tr.querySelector('.col-unit input').value,
                         parseNum(tr.querySelector('.col-price input').value),
                         parseNum(tr.querySelector('.subtotal-amt-input').value), 
-                        tr.querySelector('.val-ratio').innerText, 
-                        tr.querySelector('.col-note input').value
+                        tr.querySelector('.val-ratio').innerText
                     ]);
                     subtotalRows.push(currentRow);
                 }
@@ -739,17 +752,17 @@
             const startFooterRow = ws_data.length; 
             
             if (vatOpt === 'add10') {
-                ws_data.push([ "", "공급가액", "", "", "", parseNum(document.getElementById('finalAmtSupply').innerText), document.getElementById('ratioSupply').innerText, "" ]);
-                ws_data.push([ "", "부가세", "", "", "", parseNum(document.getElementById('finalAmtVat').innerText), document.getElementById('ratioVat').innerText, "" ]);
-                ws_data.push([ "", "합계금액", "", "", "", parseNum(document.getElementById('finalAmtTotal').innerText), "100.0%", "" ]);
+                ws_data.push([ "", "공급가액", "", "", "", parseNum(document.getElementById('finalAmtSupply').innerText), document.getElementById('ratioSupply').innerText ]);
+                ws_data.push([ "", "부가세", "", "", "", parseNum(document.getElementById('finalAmtVat').innerText), document.getElementById('ratioVat').innerText ]);
+                ws_data.push([ "", "합계금액", "", "", "", parseNum(document.getElementById('finalAmtTotal').innerText), "100.0%" ]);
             } else {
-                ws_data.push([ "", "합 계 " + document.getElementById('footerVatLabel').innerText, "", "", "", parseNum(document.getElementById('finalAmtSingle').innerText), "100.0%", "" ]);
+                ws_data.push([ "", "합 계 " + document.getElementById('footerVatLabel').innerText, "", "", "", parseNum(document.getElementById('finalAmtSingle').innerText), "100.0%" ]);
             }
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
             
             ws['!cols'] = [
-                {wch: 10}, {wch: 24}, {wch: 4}, {wch: 4}, {wch: 11}, {wch: 11}, {wch: 8}, {wch: 8}
+                {wch: 8}, {wch: 34}, {wch: 6}, {wch: 6}, {wch: 13}, {wch: 13}, {wch: 10}
             ];
 
             ws['!rows'] = [];
@@ -763,19 +776,19 @@
             }
 
             ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, 
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, 
                 { s: { r: 2, c: 1 }, e: { r: 2, c: 3 } }, 
                 { s: { r: 3, c: 1 }, e: { r: 3, c: 3 } }, 
                 { s: { r: 4, c: 1 }, e: { r: 4, c: 3 } }, 
                 { s: { r: 5, c: 1 }, e: { r: 5, c: 3 } }, 
                 { s: { r: 6, c: 1 }, e: { r: 6, c: 3 } }, 
-                { s: { r: 2, c: 5 }, e: { r: 2, c: 7 } }, 
-                { s: { r: 3, c: 5 }, e: { r: 3, c: 7 } }, 
-                { s: { r: 4, c: 5 }, e: { r: 4, c: 7 } }, 
-                { s: { r: 5, c: 5 }, e: { r: 5, c: 7 } }, 
-                { s: { r: 6, c: 5 }, e: { r: 6, c: 7 } }, 
-                { s: { r: 8, c: 0 }, e: { r: 8, c: 7 } }, 
-                { s: { r: 10, c: 0 }, e: { r: 10, c: 7 } } 
+                { s: { r: 2, c: 5 }, e: { r: 2, c: 6 } }, 
+                { s: { r: 3, c: 5 }, e: { r: 3, c: 6 } }, 
+                { s: { r: 4, c: 5 }, e: { r: 4, c: 6 } }, 
+                { s: { r: 5, c: 5 }, e: { r: 5, c: 6 } }, 
+                { s: { r: 6, c: 5 }, e: { r: 6, c: 6 } }, 
+                { s: { r: 8, c: 0 }, e: { r: 8, c: 6 } }, 
+                { s: { r: 10, c: 0 }, e: { r: 10, c: 6 } } 
             ];
 
             for (let i = startFooterRow; i < ws_data.length; i++) {
@@ -818,7 +831,7 @@
                     }
                     if (R === 8) style.alignment.horizontal = "center";
 
-                    if (R === 10 && C >= 0 && C <= 7) {
+                    if (R === 10 && C >= 0 && C <= 6) {
                         style.fill = { fgColor: { rgb: "E0F2F1" } };
                         style.font.bold = true;
                         style.font.color = { rgb: "008080" };
@@ -932,8 +945,7 @@
                             const qty = row[2] || 0;
                             const unit = row[3] || "";
                             const price = row[4] || 0;
-                            const note = row[7] || "";
-                            tbody.appendChild(createItemRow(desc, qty, unit, price, note));
+                            tbody.appendChild(createItemRow(desc, qty, unit, price));
                         } 
                         else if (col1 !== "") {
                             const label = row[1];
@@ -941,8 +953,7 @@
                             const unit = row[3] || "";
                             const price = row[4] || "";
                             const amt = row[5] || "";
-                            const note = row[7] || "";
-                            tbody.appendChild(createSubtotalRow(label, qty, unit, price, amt, true, note));
+                            tbody.appendChild(createSubtotalRow(label, qty, unit, price, amt, true));
                         }
                     }
 
@@ -1013,7 +1024,8 @@
             }
         });
 
-        function saveData() {
+        // 파라미터 isSilent를 추가하여 알림창 노출 여부 제어
+        function saveData(isSilent = false) {
             const data = {
                 clientName: document.getElementById('clientName').innerText,
                 projectName: document.getElementById('projectName').innerText,
@@ -1034,8 +1046,7 @@
                         desc: tr.querySelector('.col-desc .desc-input').innerText,
                         qty: tr.querySelector('.col-qty input').value,
                         unit: tr.querySelector('.col-unit input').value,
-                        price: parseNum(tr.querySelector('.col-price input').value),
-                        note: tr.querySelector('.col-note input').value
+                        price: parseNum(tr.querySelector('.col-price input').value)
                     });
                 } else if (tr.classList.contains('subtotal-row')) {
                     data.rows.push({
@@ -1045,14 +1056,17 @@
                         unit: tr.querySelector('.col-unit input').value,
                         price: parseNum(tr.querySelector('.col-price input').value),
                         amt: parseNum(tr.querySelector('.subtotal-amt-input').value),
-                        isManual: tr.querySelector('.subtotal-amt-input').dataset.manual === 'true',
-                        note: tr.querySelector('.col-note input').value
+                        isManual: tr.querySelector('.subtotal-amt-input').dataset.manual === 'true'
                     });
                 }
             });
             
             localStorage.setItem('estimateData_smart', JSON.stringify(data));
-            alert("입력하신 내용이 브라우저에 임시저장되었습니다.");
+            
+            // isSilent 파라미터가 명시적으로 true가 아닐 때만 알림 띄움 (수동버튼 클릭시)
+            if (isSilent !== true) {
+                alert("입력하신 내용이 브라우저에 임시저장되었습니다.");
+            }
         }
 
         function loadData() {
@@ -1082,9 +1096,9 @@
                         tbody.innerHTML = '';
                         data.rows.forEach(row => {
                             if (row.type === 'item') {
-                                tbody.appendChild(createItemRow(row.desc, row.qty, row.unit, row.price, row.note));
+                                tbody.appendChild(createItemRow(row.desc, row.qty, row.unit, row.price));
                             } else if (row.type === 'subtotal') {
-                                const tr = createSubtotalRow(row.label, row.qty, row.unit, row.price, row.amt, row.isManual, row.note);
+                                const tr = createSubtotalRow(row.label, row.qty, row.unit, row.price, row.amt, row.isManual);
                                 tbody.appendChild(tr);
                             }
                         });
@@ -1096,7 +1110,7 @@
             }
             
             if (tbody.children.length === 0) {
-                tbody.appendChild(createItemRow('홍보영상 제작 (연출, 촬영 등)', 1, '식', 2000000, ''));
+                tbody.appendChild(createItemRow('홍보영상 제작 (연출, 촬영 등)', 1, '식', 2000000));
             }
             
             calculate();
