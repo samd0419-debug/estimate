@@ -659,6 +659,7 @@
             document.getElementById('totalVatLabel').innerText = vatText;
         }
 
+        // 아이폰 인쇄 오류를 해결한 새로운 triggerPrint 함수
         function triggerPrint() {
             const projectNameStr = document.getElementById('projectName').innerText.trim() || "사업명없음";
             let dateText = document.getElementById('docDate').innerText.trim();
@@ -673,30 +674,17 @@
             style.innerHTML = `@page { size: A4; margin: 0 !important; } body { padding: 10mm 10mm 15mm 10mm !important; margin: 0; } tr { page-break-inside: avoid; break-inside: avoid; }`;
             document.head.appendChild(style);
             document.body.classList.add('is-printing');
-            
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
-                try {
-                    const tempInput = document.createElement('input');
-                    tempInput.value = newTitle;
-                    document.body.appendChild(tempInput);
-                    tempInput.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(tempInput);
-                    
-                    alert("📱 아이폰(모바일) 환경에서는 보안 정책상 PDF 파일명이 자동 적용되지 않습니다.\n\n대신 파일명이 자동으로 [복사] 되었으니, '파일에 저장' 화면에서 기존 이름을 지우고 꾹 눌러 [붙여넣기]를 해주세요!\n\n※ 인쇄 미리보기에서 하단 URL이 보인다면, '옵션'에서 '머리글 및 바닥글' 체크를 해제해주세요.");
-                } catch (e) { console.error("복사 실패", e); }
-            }
 
+            // iOS 사파리에서는 사용자 클릭 직후 즉시 호출되어야 인쇄 창이 차단되지 않습니다.
+            window.print();
+
+            // 인쇄 창이 닫힌 후 원상 복구
             setTimeout(() => {
-                window.print();
-                setTimeout(() => {
-                    document.body.classList.remove('is-printing');
-                    document.title = originalTitle; 
-                    const pStyle = document.getElementById('print-page-style');
-                    if(pStyle) pStyle.remove();
-                }, 500);
-            }, 100);
+                document.body.classList.remove('is-printing');
+                document.title = originalTitle; 
+                const pStyle = document.getElementById('print-page-style');
+                if(pStyle) pStyle.remove();
+            }, 1000);
         }
 
         function exportToExcel() {
