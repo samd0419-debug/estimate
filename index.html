@@ -12,6 +12,10 @@
     <!-- 엑셀 스타일(색상, 테두리, 정렬) 저장을 지원하는 업그레이드 라이브러리로 교체 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     
+    <!-- [추가됨] PDF 변환을 위한 html2canvas 및 jsPDF 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <style>
         :root {
             --primary: #008080; 
@@ -350,7 +354,8 @@
             <input type="file" id="excelUpload" style="display:none;" accept=".xlsx, .xls" onchange="importFromExcel(event)">
             <button class="btn-outline" onclick="document.getElementById('excelUpload').click()">엑셀 불러오기</button>
             <button class="btn-outline" onclick="exportToExcel()">엑셀 다운로드</button>
-            <button class="btn-primary" onclick="triggerPrint()">인쇄 / PDF 저장</button>
+            <!-- [변경됨] PDF 전용 함수 연결 -->
+            <button class="btn-primary" onclick="exportAndSharePDF()">인쇄 / PDF 공유</button>
         </div>
     </div>
 
@@ -657,38 +662,116 @@
             document.getElementById('totalVatLabel').innerText = vatText;
         }
 
-        // 아이폰 인쇄 오류를 근본적으로 차단한 완벽한 triggerPrint
-        function triggerPrint() {
-            // 1. 인쇄/PDF 파일명을 위한 타이틀 임시 변경
-            const projectNameStr = document.getElementById('projectName').innerText.trim() || "사업명없음";
-            let dateText = document.getElementById('docDate').innerText.trim();
-            dateText = dateText.replace(/년\s*/g, '-').replace(/월\s*/g, '-').replace(/일\s*/g, '').replace(/\s+/g, '');
-            const newTitle = `${projectNameStr}_견적서_${dateText}(미디어뱅크)`;
+        // [추가 및 변경됨] PWA 앱 모드를 완벽하게 지원하는 PDF 생성 및 공유 함수
+        async function exportAndSharePDF() {
+            const btn = document.querySelector('button[onclick="exportAndSharePDF()"]');
+            const originalBtnText = btn ? btn.innerText : '인쇄 / PDF 공유';
             
-            const originalTitle = document.title;
-            document.title = newTitle; 
-
-            // 2. iOS '홈 화면에 추가(PWA)' 모드로 실행 중인지 체크 (중요)
-            // 홈 화면 아이콘으로 실행된 경우 애플 정책상 인쇄 창 자체가 뜨지 않으므로 사파리로 유도합니다.
-            if (window.navigator.standalone) {
-                alert("현재 아이폰 '홈 화면(전체화면)' 앱 모드입니다.\n\n아이폰 보안 정책상 여기서는 인쇄 창이 열리지 않습니다.\n바탕화면의 Safari(사파리) 브라우저를 직접 켜서 해당 웹 주소로 접속해 주세요.");
-                document.title = originalTitle;
-                return;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "PDF 생성 중...";
             }
 
-            // 3. 어떠한 딜레이나 강제 화면 렌더링 변경 없이 즉시 인쇄 호출 (튕김 방지)
-            window.print();
-
-            // 4. 인쇄 창이 완전히 닫힌 이후에만 원래 타이틀 복구
-            window.addEventListener('afterprint', function cleanup() {
-                document.title = originalTitle;
-                window.removeEventListener('afterprint', cleanup);
-            });
+            const quoteElement = document.getElementById('document');
             
-            // 혹시 afterprint 이벤트를 브라우저가 놓칠 경우를 대비한 넉넉한 안전망 (10초 뒤)
-            setTimeout(() => {
-                document.title = originalTitle;
-            }, 10000);
+            // 1. PDF에 찍히지 않아야 할 요소(삭제 버튼 등) 임시 숨김 처리
+            const noPrintElements = document.querySelectorAll('.no-print');
+            const originalDisplays = [];
+            noPrintElements.forEach(el => {
+                originalDisplays.push(el.style.display);
+                el.style.display = 'none';
+            });
+
+            // 2. 인쇄 모드처럼 깔끔하게 보이도록 입력창 테두리 임시 제거
+            const inputs = document.querySelectorAll('table.items-table input, .desc-input, .seal-img');
+            const originalBorders = [];
+            inputs.forEach(el => {
+                originalBorders.push(el.style.border);
+                el.style.border = 'none';
+            });
+
+            // 3. 그림자 효과 임시 제거 (PDF 배경 깔끔하게)
+            const originalShadow = quoteElement.style.boxShadow;
+            quoteElement.style.boxShadow = 'none';
+
+            try {
+                // 브라우저 렌더링이 반영되도록 아주 짧게 대기
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // html2canvas로 HTML 영역 캡처
+                const canvas = await html2canvas(quoteElement, { 
+                    scale: 2, 
+                    useCORS: true, 
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+
+                // 캡처한 이미지를 A4 크기의 PDF로 변환
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                const pdfBlob = pdf.output('blob');
+                
+                // 대표님이 작성하셨던 기존 파일명 생성 로직 재사용
+                const projectNameStr = document.getElementById('projectName').innerText.trim() || "사업명없음";
+                let dateText = document.getElementById('docDate').innerText.trim();
+                dateText = dateText.replace(/년\s*/g, '-').replace(/월\s*/g, '-').replace(/일\s*/g, '').replace(/\s+/g, '');
+                const fileName = `${projectNameStr}_견적서_${dateText}(미디어뱅크).pdf`;
+
+                const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                // iOS / 모바일 Web Share API 호출 (공유 시트)
+                if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                    try {
+                        await navigator.share({ 
+                            files: [pdfFile], 
+                            title: fileName, 
+                            text: '요청하신 미디어뱅크 견적서 파일입니다.' 
+                        });
+                    } catch (error) {
+                        // 공유창을 닫은 경우(AbortError) 무시, 그 외 오류 시 다운로드 실행
+                        if (error.name !== 'AbortError') {
+                            fallbackDownload(pdfBlob, fileName);
+                        }
+                    }
+                } else {
+                    // 공유 API 미지원 환경 (PC 등)에서는 바로 다운로드
+                    fallbackDownload(pdfBlob, fileName);
+                }
+            } catch (error) {
+                console.error('PDF 생성 중 오류:', error);
+                alert('PDF 생성에 실패했습니다.');
+            } finally {
+                // 모든 작업이 끝난 후 UI 원상복구
+                noPrintElements.forEach((el, index) => {
+                    el.style.display = originalDisplays[index];
+                });
+                inputs.forEach((el, index) => {
+                    el.style.border = originalBorders[index];
+                });
+                quoteElement.style.boxShadow = originalShadow;
+
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = originalBtnText;
+                }
+            }
+        }
+
+        // 일반 파일 다운로드 폴백(Fallback)
+        function fallbackDownload(blob, fileName) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         }
 
         function exportToExcel() {
@@ -830,7 +913,7 @@
                         style.font.sz = 12;
                         style.border = {
                             top: { style: "medium", color: { rgb: "008080" } },
-                            bottom: { style: "medium", color: { rgb: "008080" } },
+                            bottom: { style: "medium", color: { 고gb: "008080" } },
                             left: { style: "medium", color: { rgb: "008080" } },
                             right: { style: "medium", color: { rgb: "008080" } }
                         };
